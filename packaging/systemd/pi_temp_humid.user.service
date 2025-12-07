@@ -1,0 +1,16 @@
+[Unit]
+Description=PiTempHumid (user service)
+# Start after the user's default target so the service runs on console
+# logins as well as graphical sessions.
+After=default.target
+
+[Service]
+Type=simple
+# Run via the user's shell so environment and PATH are reasonable
+Environment=PYTHONUNBUFFERED=1
+ExecStart=%h/devel/tmp/pi_temp_hunid/packaging/scripts/start_pi_temp_humid.sh --eglfs
+WorkingDirectory=%h/devel/tmp/pi_temp_hunid
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

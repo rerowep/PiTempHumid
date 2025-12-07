@@ -1,0 +1,38 @@
+[project]
+name = "pi_temp_humid"
+version = "0.1.0"
+description = "Pi temperature and humidity helper project"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+  { name = "rerowep" },
+]
+
+dependencies = [
+  "click>=8.0",
+  "poethepoet>=0.38.0",
+  "pyside6>=6.6",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "uv>=0.1.0"]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project.scripts]
+pi-temp-humid = "pi_temp_humid.cli:main"
+pi-temp-humid-gui = "pi_temp_humid.gui:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pi_temp_humid*"]
+
+[tool.poe.tasks]
+run = { cmd = "python -m pi_temp_humid.cli read --simulate" }
+read = { cmd = "python -m pi_temp_humid.cli read" }
+gui = { cmd = "python -m pi_temp_humid.gui" }
+install = { cmd = "pip install -e ." }
+test = { cmd = "pytest", deps = ["pytest"] }
+

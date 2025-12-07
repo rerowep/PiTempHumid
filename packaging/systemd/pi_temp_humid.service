@@ -1,0 +1,26 @@
+[Unit]
+Description=PiTempHumid Qt EGLFS GUI
+After=network.target local-fs.target
+
+[Service]
+Type=simple
+# Run as a dedicated unprivileged user. Update as appropriate for your system.
+User=pi
+Group=pi
+# Keep the service unit minimal and delegate platform/env handling
+# to the `start_pi_temp_humid.sh` helper script which mirrors the systemd
+# environment used during development. Install the project under
+# `/opt/pi_temp_humid` and the helper path below should be valid.
+# If you prefer a different install location, update `WorkingDirectory`
+# and `ExecStart` accordingly.
+WorkingDirectory=/opt/pi_temp_humid
+ExecStart=/bin/bash /opt/pi_temp_humid/packaging/scripts/start_pi_temp_humid.sh
+
+Restart=always
+RestartSec=5
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

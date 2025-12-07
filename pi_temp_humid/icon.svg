@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="gtemp" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#ff6b6b"/>
+      <stop offset="100%" stop-color="#ff3b3b"/>
+    </linearGradient>
+    <linearGradient id="ghum" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#6fb3ff"/>
+      <stop offset="100%" stop-color="#3b8bff"/>
+    </linearGradient>
+  </defs>
+  <!-- background circle -->
+  <circle cx="32" cy="32" r="30" fill="#ffffff" stroke="#cccccc" stroke-width="1"/>
+
+  <!-- thermometer: rectangle + bulb -->
+  <rect x="26" y="10" width="12" height="30" rx="6" ry="6" fill="#eee" stroke="#bbb"/>
+  <rect x="28" y="12" width="8" height="26" rx="4" ry="4" fill="url(#gtemp)"/>
+  <circle cx="32" cy="46" r="8" fill="url(#gtemp)" stroke="#bb3333" stroke-width="0.8"/>
+
+  <!-- humidity droplet -->
+  <path d="M16 22 C16 14, 28 12, 28 22 C28 30, 20 34, 16 46 C12 34, 4 30, 4 22 C4 12, 16 14, 16 22 Z"
+        transform="translate(24,0) scale(0.9)" fill="url(#ghum)" stroke="#2f6fd6" stroke-width="0.8"/>
+</svg>

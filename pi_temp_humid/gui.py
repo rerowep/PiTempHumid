@@ -391,9 +391,15 @@ class MainWindow(QWidget):
 
     def _append_points(self, points: list[tuple[int, float, float]]) -> None:
         for series, index in ((self.temp_series, 1), (self.hum_series, 2)):
-            series.append([QPointF(p[0], p[index]) for p in points])
-            if (excess := series.count() - MAX_POINTS) > 0:
-                series.removePoints(0, excess)
+            new = [QPointF(p[0], p[index]) for p in points]
+            if len(new) == 1:
+                series.append(new[0])
+                if series.count() > MAX_POINTS:
+                    series.removePoints(0, 1)
+            else:
+                # append(list) updates the chart once per point (seconds for a
+                # full history on a Pi); replace() does a single update.
+                series.replace((series.points() + new)[-MAX_POINTS:])
 
     def _load_history(self) -> None:
         if not self.db_path:

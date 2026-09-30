@@ -70,6 +70,18 @@ def test_shrinking_window_keeps_history(window):
     assert window.temp_series.count() == 2
 
 
+def test_series_capped_at_max_points(window, monkeypatch):
+    monkeypatch.setattr(gui, "MAX_POINTS", 5)
+    now = QDateTime.currentMSecsSinceEpoch()
+    window._append_points([(now - i * 1000, float(i), 50.0) for i in range(8, 0, -1)])
+    assert window.temp_series.count() == 5
+
+    window._reader.queue.append((99.0, 51.0))
+    window.read_once()
+    assert window.temp_series.count() == 5
+    assert window.temp_series.at(4).y() == 99.0
+
+
 def test_pan_into_past_stops_following(window):
     window.pan_by_pixels(-200)
     panned_end = _view_end(window)

@@ -16,7 +16,9 @@ Group=pi
 WorkingDirectory=/opt/pi_temp_humid
 ExecStart=/bin/bash /opt/pi_temp_humid/packaging/scripts/start_pi_temp_humid.sh
 
-Restart=always
+# Restart only after crashes: quitting with Esc/Ctrl+Q exits with status 0
+# and must leave the console usable instead of relaunching the fullscreen app.
+Restart=on-failure
 RestartSec=5
 
 StandardOutput=journal

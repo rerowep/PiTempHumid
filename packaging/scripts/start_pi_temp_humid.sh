@@ -18,11 +18,13 @@ Options:
     --prune-months N          Prune readings older than N months (default: 3)
     --eglfs                   Force EGLFS platform (PIQT_FORCE_EGLFS=1)
     --rotation DEG            EGLFS rotation in degrees (0/90/180/270) (default: 180)
-    --touch DEVICE            Touch device path (default: /dev/input/event0)
-    --mouse DEVICE            Mouse/pointer device path (default: /dev/input/event1)
+    --touch DEVICE            Touch device path (default: auto-detect via udev)
+    --mouse DEVICE            Mouse/pointer device path (default: auto-detect via udev)
     --user USER               Run the GUI as this user (uses `sudo -u`) (default: pi)
     --bg                      Run in background (nohup, logs to /var/log/pi_temp_humid.log)
     --force-evdev             Prefer Qt evdev input plugin when available
+    --qpa-log                 Enable verbose Qt platform/input logging
+    --logfile PATH            Log file used with --bg (default: /var/log/pi_temp_humid.log)
     --help                    Show this help
 
 Any arguments after a bare `--` are appended to the python command.
@@ -35,8 +37,10 @@ PRUNE_ENABLED_DEFAULT=1
 PRUNE_MONTHS_DEFAULT=3
 PIQT_FORCE_EGLFS_DEFAULT=1
 QT_QPA_PLATFORM_DEFAULT="eglfs"
-TOUCH_DEFAULT="/dev/input/event5"
-MOUSE_DEFAULT="/dev/input/event1"
+# Empty = let Qt discover input devices via udev. /dev/input/eventN numbers
+# change between boots, so only pin a device when auto-detection is wrong.
+TOUCH_DEFAULT=""
+MOUSE_DEFAULT=""
 WIDTH_DEFAULT=800
 HEIGHT_DEFAULT=480
 ROTATION_DEFAULT=180
@@ -49,13 +53,11 @@ PRUNE_ENABLED="${PI_TEMP_PRUNE_ENABLED:-$PRUNE_ENABLED_DEFAULT}"
 PRUNE_MONTHS="${PI_TEMP_PRUNE_MONTHS:-$PRUNE_MONTHS_DEFAULT}"
 PIQT_FORCE_EGLFS="${PIQT_FORCE_EGLFS:-$PIQT_FORCE_EGLFS_DEFAULT}"
 QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-$QT_QPA_PLATFORM_DEFAULT}"
-TOUCH_DEVICE="${QT_QPA_EVDEV_TOUCHSCREEN:-$TOUCH_DEFAULT}"
-MOUSE_DEVICE="${QT_QPA_EVDEV_MOUSE:-$MOUSE_DEFAULT}"
+TOUCH_DEVICE="$TOUCH_DEFAULT"
+MOUSE_DEVICE="$MOUSE_DEFAULT"
 WIDTH="${QT_QPA_EGLFS_PHYSICAL_WIDTH:-$WIDTH_DEFAULT}"
 HEIGHT="${QT_QPA_EGLFS_PHYSICAL_HEIGHT:-$HEIGHT_DEFAULT}"
 ROTATION="${QT_QPA_EGLFS_ROTATION:-$ROTATION_DEFAULT}"
-TOUCH_PARAMS="${QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS:-$TOUCH_DEVICE:rotate=$ROTATION}"
-MOUSE_PARAMS="${QT_QPA_EVDEV_MOUSE_PARAMETERS:-$MOUSE_DEVICE:rotate=$ROTATION}"
 
 RUN_USER="${RUN_USER_DEFAULT}"
 BACKGROUND=0
@@ -106,22 +108,18 @@ if [[ -n "$LOGFILE_OVERRIDE" ]]; then
     LOGFILE="$LOGFILE_OVERRIDE"
 fi
 
-# Build parameters that some EGLFS/evdev builds accept
-# Use simple rotate-only parameters for evdev touchscreen/mouse so
-# Qt's evdev plugin receives only rotation directives (e.g. "rotate=180").
-TOUCH_PARAMS="${QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS:-rotate=${ROTATION}}"
-MOUSE_PARAMS="${QT_QPA_EVDEV_MOUSE_PARAMETERS:-rotate=${ROTATION}}"
+# Qt evdev spec: "[/dev/input/eventN:]rotate=DEG". Without a device path Qt
+# auto-detects the devices and applies the rotation to each of them.
+TOUCH_PARAMS="${QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS:-${TOUCH_DEVICE:+$TOUCH_DEVICE:}rotate=${ROTATION}}"
+MOUSE_PARAMS="${QT_QPA_EVDEV_MOUSE_PARAMETERS:-${MOUSE_DEVICE:+$MOUSE_DEVICE:}rotate=${ROTATION}}"
 
 # Export environment variables
-export QT_QPA_EVDEV_TOUCHSCREEN="$TOUCH_DEVICE"
+export QT_QPA_PLATFORM
 export QT_QPA_EGLFS_PHYSICAL_WIDTH="$WIDTH"
 export QT_QPA_EGLFS_PHYSICAL_HEIGHT="$HEIGHT"
 export QT_QPA_EGLFS_ROTATION="$ROTATION"
 export QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS="$TOUCH_PARAMS"
-export QT_QPA_EVDEV_TOUCHSCREEN_ROTATION="$ROTATION"
-export QT_QPA_EVDEV_MOUSE="$MOUSE_DEVICE"
 export QT_QPA_EVDEV_MOUSE_PARAMETERS="$MOUSE_PARAMS"
-export QT_QPA_EVDEV_MOUSE_ROTATION="$ROTATION"
 export PI_TEMP_DB="$DB"
 export PI_TEMP_PRUNE_ENABLED="$PRUNE_ENABLED"
 export PI_TEMP_PRUNE_MONTHS="$PRUNE_MONTHS"
@@ -153,8 +151,8 @@ cat <<EOF
 Starting PiTempHumid with:
     QT_QPA_PLATFORM=$QT_QPA_PLATFORM
     EGLFS rotation=$ROTATION (physical ${WIDTH}x${HEIGHT})
-    touchscreen=$TOUCH_DEVICE (params: $TOUCH_PARAMS)
-    mouse=$MOUSE_DEVICE (params: $MOUSE_PARAMS)
+    touchscreen=${TOUCH_DEVICE:-auto} (params: $TOUCH_PARAMS)
+    mouse=${MOUSE_DEVICE:-auto} (params: $MOUSE_PARAMS)
     force_evdev=$FORCE_EVDEV
     DB=$DB
     prune_enabled=$PRUNE_ENABLED prune_months=$PRUNE_MONTHS
@@ -169,15 +167,11 @@ fi
 # Compose env assignment string for sudo when running as different user
 ENV_VARS=(
     "QT_QPA_PLATFORM=$QT_QPA_PLATFORM"
-    "QT_QPA_EVDEV_TOUCHSCREEN=$TOUCH_DEVICE"
     "QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS=$TOUCH_PARAMS"
-    "QT_QPA_EVDEV_TOUCHSCREEN_ROTATION=$ROTATION"
     "QT_QPA_EGLFS_PHYSICAL_WIDTH=$WIDTH"
     "QT_QPA_EGLFS_PHYSICAL_HEIGHT=$HEIGHT"
     "QT_QPA_EGLFS_ROTATION=$ROTATION"
-    "QT_QPA_EVDEV_MOUSE=$MOUSE_DEVICE"
     "QT_QPA_EVDEV_MOUSE_PARAMETERS=$MOUSE_PARAMS"
-    "QT_QPA_EVDEV_MOUSE_ROTATION=$ROTATION"
     "PI_TEMP_DB=$DB"
     "PI_TEMP_PRUNE_ENABLED=$PRUNE_ENABLED"
     "PI_TEMP_PRUNE_MONTHS=$PRUNE_MONTHS"

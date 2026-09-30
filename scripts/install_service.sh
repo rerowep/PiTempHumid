@@ -79,7 +79,7 @@ else
   sudo cp "$SERVICE_SRC" "$SERVICE_DST"
 
   # Replace the placeholder WorkingDirectory in the unit file with the chosen path
-  sudo sed -i.bak "s|WorkingDirectory=/opt/pi_temp_humid|WorkingDirectory=$WORKDIR|g" "$SERVICE_DST"
+  sudo sed -i.bak "s|/opt/pi_temp_humid|$WORKDIR|g" "$SERVICE_DST"
 
   # Ensure the DB path directory exists and is owned by the service user
   DB_DIR="/var/lib/pi_temp_humid"

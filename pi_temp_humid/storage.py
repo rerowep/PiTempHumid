@@ -1,23 +1,26 @@
-"""Storage helpers for PiTempHumid.
+"""SQLite storage for readings.
 
-Provides a small, well-scoped API for initializing and appending readings to
-an SQLite database. Other modules should import these helpers instead of
-duplicating the logic.
+Timestamps are stored as UTC ISO-8601 strings so they sort and compare
+correctly as text.
 """
 
 from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+
+Reading = tuple[str, float, float, str | None, int | None]
+
+
+def _connect(path: str) -> closing[sqlite3.Connection]:
+    return closing(sqlite3.connect(path))
 
 
 def init_db(path: str) -> None:
-    """Ensure the SQLite database and `readings` table exist."""
-    con = sqlite3.connect(path)
-    try:
-        cur = con.cursor()
-        cur.execute(
+    """Ensure the SQLite database and ``readings`` table exist."""
+    with _connect(path) as con, con:
+        con.execute(
             """
             CREATE TABLE IF NOT EXISTS readings (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -29,72 +32,56 @@ def init_db(path: str) -> None:
             )
             """
         )
-        con.commit()
-    finally:
-        con.close()
+        con.execute("CREATE INDEX IF NOT EXISTS readings_ts ON readings (ts)")
 
 
 def save_reading(
     path: str,
     temperature_c: float,
     humidity: float,
-    sensor: Optional[str],
-    pin: Optional[int],
+    sensor: str | None,
+    pin: int | None,
 ) -> None:
-    """Append a reading to the SQLite database.
-
-    `path` is the SQLite file path. `sensor` and `pin` can be None.
-    """
+    """Append a reading stamped with the current UTC time."""
     ts = datetime.now(timezone.utc).isoformat()
-    con = sqlite3.connect(path)
-    try:
-        cur = con.cursor()
-        cur.execute(
+    with _connect(path) as con, con:
+        con.execute(
             "INSERT INTO readings (ts, temperature_c, humidity, sensor, pin) VALUES (?, ?, ?, ?, ?)",
             (ts, temperature_c, humidity, sensor, pin),
         )
-        con.commit()
-    finally:
-        con.close()
 
 
-def get_recent_readings(
-    path: str, limit: int = 1000
-) -> list[tuple[str, float, float, Optional[str], Optional[int]]]:
-    """Return up to `limit` most recent readings from the DB.
+def get_recent_readings(path: str, limit: int = 1000) -> list[Reading]:
+    """Return up to ``limit`` most recent readings, oldest first.
 
-    Returns a list of tuples `(ts_iso, temperature_c, humidity, sensor, pin)`
-    ordered from oldest to newest.
+    :param path: SQLite file path.
+    :type path: str
+    :param limit: Maximum number of rows to return.
+    :type limit: int
+    :returns: Tuples of ``(ts_iso, temperature_c, humidity, sensor, pin)``.
+    :rtype: list[tuple]
     """
-    con = sqlite3.connect(path)
-    try:
-        cur = con.cursor()
-        cur.execute(
+    with _connect(path) as con:
+        rows = con.execute(
             "SELECT ts, temperature_c, humidity, sensor, pin FROM readings ORDER BY ts DESC LIMIT ?",
             (limit,),
-        )
-        rows = cur.fetchall()
-        # rows are newest-first; return oldest-first for plotting
-        rows.reverse()
-        return rows
-    finally:
-        con.close()
+        ).fetchall()
+    rows.reverse()
+    return rows
+
+
+def clear_readings(path: str) -> None:
+    """Delete all stored readings."""
+    with _connect(path) as con, con:
+        con.execute("DELETE FROM readings")
 
 
 def prune_old_readings(path: str, months: int = 3) -> int:
-    """Delete readings older than `months` months (approx. 30 days/month).
+    """Delete readings older than ``months`` months (a month counts as 30 days).
 
-    Returns the number of rows deleted. This uses a conservative estimate of
-    a month as 30 days to avoid adding extra dependencies.
+    :returns: Number of deleted rows.
+    :rtype: int
     """
-    cutoff = datetime.now(timezone.utc) - timedelta(days=months * 30)
-    cutoff_iso = cutoff.isoformat()
-    con = sqlite3.connect(path)
-    try:
-        cur = con.cursor()
-        cur.execute("DELETE FROM readings WHERE ts < ?", (cutoff_iso,))
-        deleted = cur.rowcount if cur.rowcount is not None else 0
-        con.commit()
-        return deleted
-    finally:
-        con.close()
+    cutoff_iso = (datetime.now(timezone.utc) - timedelta(days=months * 30)).isoformat()
+    with _connect(path) as con, con:
+        return con.execute("DELETE FROM readings WHERE ts < ?", (cutoff_iso,)).rowcount

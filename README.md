@@ -1,96 +1,82 @@
-pi_temp_humid
-===============
+# pi_temp_humid
 
-Small utility to read temperature and humidity (AM2302/DHT22 or DHT11)
-from a Raspberry Pi and optionally save readings to an SQLite database.
+Read temperature and humidity from an AM2302/DHT22 or DHT11 sensor on a
+Raspberry Pi, store readings in SQLite and show them on a fullscreen
+touchscreen GUI (chart + idle clock).
 
-Quick start
------------
-
-- Install the package editable and the dev extras (provides `poethepoet`):
+## Quick start
 
 ```bash
-pip install -e .[dev]
+uv sync --extra dev
+uv run pi-temp-humid read --simulate          # one simulated reading
+uv run pi-temp-humid read --pin 4 --save-db readings.db
+uv run poe gui_sim                            # GUI with simulated sensor (desktop)
+uv run poe gui                                # GUI with the real sensor
 ```
 
-- To run a simulated read (no hardware required):
+## Development
 
 ```bash
-uv run pi_temp_humid.cli read --simulate
-# or with poethepoet if you prefer (install via `[dev]` extras)
-# poethepoet run run
-# or directly
-# python -m pi_temp_humid.cli read --simulate
+uv run poe tests
+uv run poe lint
+uv run poe format
 ```
 
-- To run the GUI (desktop):
+## GUI controls
+
+- Drag the chart to pan, mouse wheel to zoom, double-tap to return to "now".
+- After `PI_TEMP_CLOCK_IDLE` seconds without input a large clock is shown;
+  tap anywhere to return.
+- **Quit:** `Esc` or `Ctrl+Q` on an attached keyboard, `Ctrl+C` in the
+  terminal, or `sudo systemctl stop pi_temp_humid` / `pkill -f pi_temp_humid.gui`.
+
+## Configuration (environment variables)
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `PI_TEMP_DB` | `readings.db` | SQLite file |
+| `PI_TEMP_SENSOR` | `AM2302` | `AM2302`, `DHT22` or `DHT11` |
+| `PI_TEMP_PIN` | `11` | BCM GPIO number of the sensor data line (GUI) |
+| `PI_TEMP_DHT_DRIVER` | `auto` | `auto`, `adafruit` (CircuitPython) or `legacy` (`Adafruit_DHT`) |
+| `PI_TEMP_SIMULATE` | `0` | `1` = random readings, no hardware |
+| `PI_TEMP_CLOCK_IDLE` | `60` | Seconds of inactivity before the clock appears |
+| `PI_TEMP_PRUNE_ENABLED` | `1` | Delete old readings at start and daily |
+| `PI_TEMP_PRUNE_MONTHS` | `3` | Age limit for pruning |
+| `PIQT_FORCE_EGLFS` | unset | Use Qt's `eglfs` platform (fullscreen, no desktop) |
+
+## Running on the Pi as a service
 
 ```bash
-uv run pi_temp_humid.gui
-# or with poethepoet
-# poethepoet run gui
-# or
-# python -m pi_temp_humid.gui
+sudo ./scripts/install_service.sh --workdir /opt/pi_temp_humid
+sudo systemctl status pi_temp_humid
+journalctl -u pi_temp_humid -f
 ```
 
-Persisting readings
--------------------
+The service restarts only after a crash; quitting with `Esc` leaves it stopped.
 
-- Save readings to an SQLite file with `--save-db`:
+### Official 7" touchscreen: touch stops responding
 
-```bash
-uv run pi_temp_humid.cli read --simulate --save-db readings.db
-# or
-# pi-temp-humid read --simulate --save-db readings.db
-# or
-# python -m pi_temp_humid.cli read --simulate --save-db readings.db
+If Qt logs two touch devices (`raspberrypi-ts` and `generic ft5x06`), the
+firmware and the kernel driver are both polling the same touch controller,
+which makes touch fail intermittently. Keep only the kernel driver by adding
+this to `config.txt` on the boot partition and rebooting:
+
+```text
+disable_touchscreen=1
 ```
 
-Using `uv` (recommended)
--------------------------
+### Locked out of a fullscreen Pi
 
-This project recommends using the `uv` project manager for running commands. Install dev extras to get `uv`:
+Put the SD card in another computer and append (to the single line) in
+`cmdline.txt` on the boot partition:
 
-```bash
-pip install -e .[dev]
+```text
+systemd.unit=rescue.target systemd.setenv=SYSTEMD_SULOGIN_FORCE=1 systemd.mask=pi_temp_humid.service
 ```
 
-- `uv run pi_temp_humid.cli read --simulate` — run a simulated read
-- `uv run pi_temp_humid.cli read` — run the CLI read command (see options)
-- `uv run pi_temp_humid.gui` — run the Qt GUI
-- `uv run pip install -e .` — install the package editable (or use `uv run` to invoke any command)
+Boot with a keyboard, fix what is needed (e.g. `passwd <user>`), then remove
+those parameters again.
 
-If you prefer `poethepoet`, the existing poethepoet tasks are still available in `pyproject.toml` and will continue to work.
+## License
 
-Hardware notes
---------------
-
-- The CLI supports `AM2302`/`DHT22` and `DHT11` via the `Adafruit_DHT` library.
-- Use the `--sensor` and `--pin` options to select the sensor type and BCM
-	GPIO pin. Example: `pi-temp-humid read --sensor DHT22 --pin 4`.
-- On a Pi you may need to enable gpio access for the user or run with
-	appropriate permissions.
-
-Development & testing
----------------------
-
-- Run tests with poethepoet:
-
-```bash
-poethepoet run test
-```
-
-Notes
------
-
-- The project provides `pi_temp_humid.storage` for initializing and saving
-	readings to SQLite; both the CLI and GUI use that module.
-- If you plan to run the GUI on a Pi with an EGLFS/DRM framebuffer, set
-	the appropriate Qt environment variables for your platform (e.g.
-	`QT_QPA_PLATFORM=eglfs`) before launching.
-
-License
--------
-
-MIT — modify as needed.
-# PiTempHumid
+MIT

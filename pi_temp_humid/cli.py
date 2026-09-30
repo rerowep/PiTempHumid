@@ -67,10 +67,8 @@ def _read_adafruit(key: str, pin: int, attempts: int = 5) -> tuple[float, float]
 
 
 def _read_legacy(key: str, pin: int) -> tuple[float, float]:
-    try:
-        import Adafruit_DHT
-    except ImportError as exc:
-        raise RuntimeError("no DHT driver available: install 'adafruit-circuitpython-dht' or 'Adafruit_DHT'") from exc
+    import Adafruit_DHT
+
     sensor = Adafruit_DHT.DHT11 if key == "DHT11" else Adafruit_DHT.DHT22
     humidity, temperature = Adafruit_DHT.read_retry(sensor, pin)
     if humidity is None or temperature is None:
@@ -82,7 +80,8 @@ def read_sensor(sensor_name: str = "AM2302", pin: int = 4) -> tuple[float, float
     """Read temperature and humidity from a DHT sensor.
 
     Uses the CircuitPython ``adafruit_dht`` driver when available and falls
-    back to the legacy ``Adafruit_DHT`` package. Set ``PI_TEMP_DHT_DRIVER`` to
+    back to the legacy ``Adafruit_DHT`` package when it is missing, fails to
+    set up the board or GPIO line, or returns no data. Set ``PI_TEMP_DHT_DRIVER`` to
     ``adafruit`` or ``legacy`` to force one of them (default: ``auto``).
 
     :param sensor_name: Sensor type: AM2302, DHT22 or DHT11.
@@ -99,6 +98,8 @@ def read_sensor(sensor_name: str = "AM2302", pin: int = 4) -> tuple[float, float
     if key not in SUPPORTED_SENSORS:
         raise RuntimeError(f"unsupported sensor type: {sensor_name}")
     driver = os.environ.get("PI_TEMP_DHT_DRIVER", "auto").strip().lower()
+    # Why adafruit_dht gave no reading, reported if the legacy driver is missing.
+    adafruit_failure = None
 
     if driver in ("auto", "adafruit"):
         try:
@@ -107,13 +108,26 @@ def read_sensor(sensor_name: str = "AM2302", pin: int = 4) -> tuple[float, float
             if driver == "adafruit":
                 raise RuntimeError("requested 'adafruit' driver but 'adafruit_dht' is not available") from exc
             result = None
+        except Exception as exc:
+            # Board detection and GPIO setup fail in many ways (unknown board,
+            # busy line, NotImplementedError); the legacy driver may still work.
+            if driver == "adafruit":
+                raise
+            result, adafruit_failure = None, f"adafruit_dht: {exc}"
+        else:
+            adafruit_failure = "sensor returned no data"
         if result is not None:
             last_driver = "adafruit_dht"
             return result
         if driver == "adafruit":
-            raise RuntimeError("sensor returned no data")
+            raise RuntimeError(adafruit_failure)
 
-    result = _read_legacy(key, pin)
+    try:
+        result = _read_legacy(key, pin)
+    except ImportError as exc:
+        raise RuntimeError(
+            adafruit_failure or "no DHT driver available: install 'adafruit-circuitpython-dht' or 'Adafruit_DHT'"
+        ) from exc
     last_driver = "Adafruit_DHT"
     return result
 
@@ -155,7 +169,11 @@ def cli() -> None:
 def read(simulate: bool, sensor: str, pin: int, count: int, save_db: str | None, fahrenheit: bool) -> None:
     """Read temperature and humidity from sensor or simulator."""
     if save_db:
-        init_db(save_db)
+        try:
+            init_db(save_db)
+        except (sqlite3.Error, OSError) as exc:
+            click.echo(f"Cannot use {save_db} ({exc}); readings will not be saved", err=True)
+            save_db = None
     for _ in range(count):
         try:
             temp_c, humid = read_simulated() if simulate else read_sensor(sensor_name=sensor, pin=pin)

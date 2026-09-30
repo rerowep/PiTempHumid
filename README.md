@@ -10,7 +10,7 @@ touchscreen GUI (chart + idle clock).
 uv sync --extra dev
 uv run pi-temp-humid read --simulate          # one simulated reading
 uv run pi-temp-humid read --pin 4 --save-db readings.db
-uv run poe gui_sim                            # GUI with simulated sensor (desktop)
+uv run poe gui_sim                            # GUI with simulated sensor 
 uv run poe gui                                # GUI with the real sensor
 ```
 
@@ -25,8 +25,8 @@ uv run poe format
 ## GUI controls
 
 - Drag the chart to pan, mouse wheel to zoom, double-tap to return to "now".
-- After `PI_TEMP_CLOCK_IDLE` seconds without input a large clock is shown;
-  tap anywhere to return.
+- The app starts on a large flip clock; tap anywhere for the chart and buttons.
+  After `PI_TEMP_CLOCK_IDLE` seconds without input the clock comes back.
 - **Quit:** `Esc` or `Ctrl+Q` on an attached keyboard, `Ctrl+C` in the
   terminal, or `sudo systemctl stop pi_temp_humid` / `pkill -f pi_temp_humid.gui`.
 
@@ -40,6 +40,7 @@ uv run poe format
 | `PI_TEMP_DHT_DRIVER` | `auto` | `auto`, `adafruit` (CircuitPython) or `legacy` (`Adafruit_DHT`) |
 | `PI_TEMP_SIMULATE` | `0` | `1` = random readings, no hardware |
 | `PI_TEMP_CLOCK_IDLE` | `60` | Seconds of inactivity before the clock appears |
+| `PI_TEMP_START_CLOCK` | `1` | `0` = start on the chart instead of the clock |
 | `PI_TEMP_PRUNE_ENABLED` | `1` | Delete old readings at start and daily |
 | `PI_TEMP_PRUNE_MONTHS` | `3` | Age limit for pruning |
 | `PIQT_FORCE_EGLFS` | unset | Use Qt's `eglfs` platform (fullscreen, no desktop) |

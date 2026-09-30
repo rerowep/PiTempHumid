@@ -41,8 +41,10 @@ QT_QPA_PLATFORM_DEFAULT="eglfs"
 # change between boots, so only pin a device when auto-detection is wrong.
 TOUCH_DEFAULT=""
 MOUSE_DEFAULT=""
-WIDTH_DEFAULT=800
-HEIGHT_DEFAULT=480
+# Physical size of the display in MILLIMETRES (Qt derives the DPI from it);
+# 155x86 is the official Raspberry Pi 7" touchscreen (800x480 pixels).
+WIDTH_DEFAULT=155
+HEIGHT_DEFAULT=86
 ROTATION_DEFAULT=180
 RUN_USER_DEFAULT="pi"
 LOGFILE="/var/log/pi_temp_humid.log"
@@ -118,6 +120,8 @@ export QT_QPA_PLATFORM
 export QT_QPA_EGLFS_PHYSICAL_WIDTH="$WIDTH"
 export QT_QPA_EGLFS_PHYSICAL_HEIGHT="$HEIGHT"
 export QT_QPA_EGLFS_ROTATION="$ROTATION"
+# Lay out in real screen pixels; the app sizes its fonts in pixels itself.
+export QT_ENABLE_HIGHDPI_SCALING="${QT_ENABLE_HIGHDPI_SCALING:-0}"
 export QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS="$TOUCH_PARAMS"
 export QT_QPA_EVDEV_MOUSE_PARAMETERS="$MOUSE_PARAMS"
 export PI_TEMP_DB="$DB"
@@ -150,7 +154,7 @@ fi
 cat <<EOF
 Starting PiTempHumid with:
     QT_QPA_PLATFORM=$QT_QPA_PLATFORM
-    EGLFS rotation=$ROTATION (physical ${WIDTH}x${HEIGHT})
+    EGLFS rotation=$ROTATION (physical ${WIDTH}x${HEIGHT} mm)
     touchscreen=${TOUCH_DEVICE:-auto} (params: $TOUCH_PARAMS)
     mouse=${MOUSE_DEVICE:-auto} (params: $MOUSE_PARAMS)
     force_evdev=$FORCE_EVDEV
@@ -171,6 +175,7 @@ ENV_VARS=(
     "QT_QPA_EGLFS_PHYSICAL_WIDTH=$WIDTH"
     "QT_QPA_EGLFS_PHYSICAL_HEIGHT=$HEIGHT"
     "QT_QPA_EGLFS_ROTATION=$ROTATION"
+    "QT_ENABLE_HIGHDPI_SCALING=$QT_ENABLE_HIGHDPI_SCALING"
     "QT_QPA_EVDEV_MOUSE_PARAMETERS=$MOUSE_PARAMS"
     "PI_TEMP_DB=$DB"
     "PI_TEMP_PRUNE_ENABLED=$PRUNE_ENABLED"
